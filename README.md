@@ -27,13 +27,12 @@
 ## 📸 Capturas de pantalla
 
 ### Interfaz principal (modo oscuro, pestañas y ayuda)
+
 ![Interfaz principal](image/2image.png)
 
 ### Pestaña de Análisis: comparación visual y de hashes
+
 ![Análisis visual](image/1image.png)
-
-
-
 
 ## 📦 Estructura del proyecto
 
@@ -44,39 +43,32 @@
 - `docs/` — Documentación técnica y de usuario
 - `scripts/` — Utilidades y scripts auxiliares
 
-
-
-
 ## ⚙️ Requisitos
 
 - Python 3.12 (recomendado usar entorno conda)
 - Instalar dependencias:
 
-
 ```bash
-conda env create -f environment.yml
-conda activate estegano
-# o
-pip install -r requirements.txt
-```
-
-
-
+    conda env create -f environment.yml
+    conda activate estegano
+    # o
+    pip install -r requirements.txt
+    ```
 
 ## 🖥️ Uso rápido
 
 1. Ejecuta la interfaz gráfica:
-	```bash
-	python src/steganografia/gui_advanced.py
-	```
+
+```bash
+python src/steganografia/gui_advanced.py
+```
+
 2. Usa la pestaña "Ocultar" para seleccionar portadora y archivos secretos.
 3. Usa la pestaña "Extraer" para recuperar archivos ocultos.
 4. Usa la pestaña "Análisis" para comparar visualmente archivos, ver hashes y diferencias.
 
-
-
-
 ## 📝 Licencia
+
 MIT. Libre para uso académico y profesional.
 
 ---
