@@ -1,0 +1,8 @@
+numpy
+opencv-python
+pillow
+cryptography
+pytest
+click
+scipy
+matplotlib
