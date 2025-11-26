@@ -1,3 +1,4 @@
+import hashlib
 import sys
 import os
 from pymongo import MongoClient
@@ -31,6 +32,16 @@ mongo_secretos = mongo_db['archivos_ocultos']
 mongo_errores = mongo_db['errores']
 
 class AdvancedSteganoGUI(QWidget):
+    def calcular_hash_sha256(self, ruta_archivo):
+        sha256 = hashlib.sha256()
+        with open(ruta_archivo, 'rb') as f:
+            for bloque in iter(lambda: f.read(4096), b''):
+                sha256.update(bloque)
+        return sha256.hexdigest()
+
+    def verificar_integridad(self, ruta_archivo, hash_esperado):
+        hash_actual = self.calcular_hash_sha256(ruta_archivo)
+        return hash_actual == hash_esperado, hash_actual
 
     def clear_history(self):
         """Limpia el historial visual y en memoria, y también en MongoDB."""
@@ -578,6 +589,12 @@ class AdvancedSteganoGUI(QWidget):
         files, _ = QFileDialog.getOpenFileNames(self, 'Seleccionar Portadoras', '', 
             'Imágenes (*.png *.jpg *.jpeg *.bmp);;Audio (*.wav *.mp3);;PDF (*.pdf);;Video (*.mp4 *.avi *.mov);;Word (*.docx);;ZIP (*.zip);;Todos (*.*)')
         for f in files:
+            hash_actual = self.calcular_hash_sha256(f)
+            # Buscar hash esperado en MongoDB si existe
+            doc = mongo_portadoras.find_one({'archivo': f}, sort=[('fecha', -1)])
+            hash_esperado = doc.get('hash_sha256') if doc else None
+            if hash_esperado and hash_actual != hash_esperado:
+                QMessageBox.warning(self, 'Integridad', f'¡Advertencia! La portadora {os.path.basename(f)} ha sido modificada.\nHash actual: {hash_actual}\nHash esperado: {hash_esperado}')
             self.carrier_list.addItem(f)
         if files:
             self.update_preview(files[0])
@@ -592,6 +609,11 @@ class AdvancedSteganoGUI(QWidget):
     def add_secret(self):
         files, _ = QFileDialog.getOpenFileNames(self, 'Seleccionar Archivos Secretos', '', 'Todos (*.*)')
         for f in files:
+            hash_actual = self.calcular_hash_sha256(f)
+            doc = mongo_secretos.find_one({'archivo': f}, sort=[('fecha', -1)])
+            hash_esperado = doc.get('hash_sha256') if doc else None
+            if hash_esperado and hash_actual != hash_esperado:
+                QMessageBox.warning(self, 'Integridad', f'¡Advertencia! El archivo secreto {os.path.basename(f)} ha sido modificado.\nHash actual: {hash_actual}\nHash esperado: {hash_esperado}')
             self.secret_list.addItem(f)
 
     def remove_secret(self):
@@ -713,7 +735,8 @@ class AdvancedSteganoGUI(QWidget):
                 'fecha': timestamp,
                 'accion': 'ocultar',
                 'archivos_ocultos': secret_files,
-                'salida': out_path
+                'salida': out_path,
+                'hash_sha256': self.calcular_hash_sha256(out_path)
             })
             for secret in secret_files:
                 mongo_secretos.insert_one({
@@ -721,7 +744,8 @@ class AdvancedSteganoGUI(QWidget):
                     'fecha': timestamp,
                     'accion': 'ocultar',
                     'portadora': carrier,
-                    'salida': out_path
+                    'salida': out_path,
+                    'hash_sha256': self.calcular_hash_sha256(secret)
                 })
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Error al ocultar: {str(e)}')
@@ -794,14 +818,16 @@ class AdvancedSteganoGUI(QWidget):
                         'archivo': save_path,
                         'fecha': timestamp,
                         'accion': 'extraer',
-                        'portadora': carrier
+                        'portadora': carrier,
+                        'hash_sha256': self.calcular_hash_sha256(save_path)
                     })
             # Guardar portadora y archivos extraídos en MongoDB
             mongo_portadoras.insert_one({
                 'archivo': carrier,
                 'fecha': timestamp,
                 'accion': 'extraer',
-                'archivos_extraidos': extracted_files
+                'archivos_extraidos': extracted_files,
+                'hash_sha256': self.calcular_hash_sha256(carrier)
             })
             # Registrar en historial
             self.add_history_entry(
