@@ -2,7 +2,7 @@
 
 ## 1. Requisitos previos
 
-- Python 3.12 instalado 
+- Python 3.12 instalado
 - Instala PyInstaller en tu entorno:
 
     pip install pyinstaller

@@ -6,3 +6,25 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# Salidas automáticas de la app
+salidas_steg/
+
+# Archivos temporales de MongoDB (si se usan dumps locales)
+*.wt
+*.ns
+*.0
+*.1
+*.2
+*.3
+*.4
+*.lock
+
+# Archivos temporales de PyQt5
+*.qrc
+*.qm
+
+# Otros artefactos
+*.log
+*.bak
+node_modules/

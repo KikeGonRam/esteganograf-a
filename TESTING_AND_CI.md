@@ -24,12 +24,11 @@ def test_encode_decode_image(tmp_path):
 ## 2. Instalación de pytest
 
 En tu entorno:
-
     pip install pytest
 
 ## 3. Ejecutar pruebas localmente
 
-    pytest
+pytest
 
 ## 4. Configuración de CI/CD (GitHub Actions)
 

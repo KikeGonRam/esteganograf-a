@@ -1,7 +1,6 @@
+# Esteganografía Avanzada
 
 ![Esteganografía Avanzada GUI](image/1image.png)
-
-# Esteganografía Avanzada
 
 **Oculta archivos de cualquier tipo en imágenes, audio y PDF con cifrado y una interfaz profesional. Incluye análisis visual y comparación avanzada.**
 
@@ -11,18 +10,25 @@
 
 ## 🚀 Características principales
 
-- Oculta y extrae archivos de cualquier tipo en portadoras: imágenes (PNG/JPG/BMP), audio (WAV/MP3) y PDF.
-- Cifrado opcional de archivos secretos (Fernet/AES).
+
+- Oculta y extrae archivos de cualquier tipo en portadoras: imágenes (PNG/JPG/BMP), audio (WAV/MP3), PDF, ZIP y DOCX.
+- Cifrado avanzado opcional de archivos secretos (Fernet/AES, seleccionable).
 - Interfaz gráfica avanzada (PyQt5):
-    - Modo oscuro profesional
-	- Drag & Drop, tooltips y ayuda contextual
-	- Vista previa y comparación de hashes/tamaños
-	- Pestaña de análisis visual: selecciona y compara archivos, previsualiza imágenes/audio/pdf, compara tamaño y hash
+    - Modo oscuro profesional y temas personalizables
+    - Drag & Drop global, tooltips y ayuda contextual
+    - Vista previa avanzada y comparación de hashes/tamaños
+    - Pestaña de análisis visual: selecciona y compara archivos, previsualiza imágenes/audio/pdf, compara tamaño y hash
+    - Selección guiada de archivos: 
+        - Al ocultar, los archivos modificados se guardan automáticamente en subcarpetas únicas dentro de `salidas_steg/` (por fecha y hora)
+        - Al extraer, la selección de portadora abre directamente la carpeta de salidas
+        - Al comparar, la selección de modificado abre la carpeta de salidas y la de original abre Descargas
+    - Soporte multiarchivo y multiportadora
+    - Historial de operaciones persistente y limpiable
+    - Internacionalización (Español/Inglés)
+- Integración con MongoDB:
+    - Todas las operaciones, portadoras, archivos ocultos y errores se guardan automáticamente en la base de datos para auditoría y consulta
 - Soporte multiplataforma (Windows/Linux/Mac)
 - CLI para automatización y scripts
-
-
-
 
 ## 📸 Capturas de pantalla
 

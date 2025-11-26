@@ -1,8 +1,9 @@
 import sys
 import os
+from pymongo import MongoClient
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget, QFileDialog,
-    QLineEdit, QMessageBox, QProgressBar, QGroupBox, QFormLayout, QSpinBox, QCheckBox, QScrollArea, QComboBox
+    QLineEdit, QMessageBox, QProgressBar, QGroupBox, QFormLayout, QSpinBox, QCheckBox, QScrollArea, QComboBox, QSplitter
 )
 from PyQt5.QtGui import QPixmap, QIcon, QFont, QColor
 from PyQt5.QtCore import Qt, QSize, QTranslator, QLocale
@@ -20,21 +21,42 @@ from src.steganografia.image import ImageSteganography
 from src.steganografia.audio import AudioSteganography
 from src.steganografia.pdf import PDFSteganography
 
+
+# --- Conexión global a MongoDB ---
+mongo_client = MongoClient('localhost', 27017)
+mongo_db = mongo_client['esteganografia']
+mongo_historial = mongo_db['historial']
+mongo_portadoras = mongo_db['portadoras']
+mongo_secretos = mongo_db['archivos_ocultos']
+mongo_errores = mongo_db['errores']
+
 class AdvancedSteganoGUI(QWidget):
+
+    def clear_history(self):
+        """Limpia el historial visual y en memoria, y también en MongoDB."""
+        self.history_list.clear()
+        self.history.clear()
+        try:
+            mongo_historial.delete_many({})
+        except Exception:
+            pass
+
     def show_help(self):
         QMessageBox.information(
             self,
-            'Ayuda',
-            'Esteganografía avanzada:\n'
-            '- Usa las pestañas para ocultar, extraer, analizar y ver historial de operaciones.\n'
-            '- Arrastra y suelta archivos o usa los botones para agregarlos.\n'
-            '- El historial registra cada acción realizada.\n'
-            '- Para más detalles, consulta la documentación o README.'
+            self.tr('Ayuda'),
+            self.tr(
+                'Esteganografía avanzada:\n'
+                '- Usa las pestañas para ocultar, extraer, analizar y ver historial de operaciones.\n'
+                '- Arrastra y suelta archivos o usa los botones para agregarlos.\n'
+                '- El historial registra cada acción realizada.\n'
+                '- Para más detalles, consulta la documentación o README.'
+            )
         )
     def __init__(self):
         super().__init__()
         self.translator = QTranslator()
-        self.setWindowTitle('Esteganografía Avanzada - Multiarchivo')
+        self.setWindowTitle(self.tr('Esteganografía Avanzada - Multiarchivo'))
         self.setMinimumSize(1100, 750)
         self.apply_professional_theme()
         self.history = []  # Lista de historial de operaciones
@@ -43,147 +65,36 @@ class AdvancedSteganoGUI(QWidget):
     def apply_professional_theme(self):
         """Aplica un tema profesional moderno"""
         professional_stylesheet = """
-        QWidget { 
-            background-color: #0d1117; 
-            color: #e0e0e0; 
-            font-family: 'Segoe UI', 'Ubuntu', sans-serif;
-            font-size: 10pt;
-        }
-        QTabWidget::pane { 
-            border: 1px solid #30363d; 
-            background-color: #0d1117;
-        }
-        QTabBar::tab { 
-            background: #161b22; 
-            color: #8b949e; 
-            padding: 12px 24px; 
-            border: 1px solid #30363d;
-            margin-right: 0px;
-            font-weight: 500;
-        }
-        QTabBar::tab:selected { 
-            background: #1f6feb; 
-            color: #ffffff;
-            border: 1px solid #1f6feb;
-        }
-        QTabBar::tab:hover { 
-            background: #262d34;
-        }
-        QGroupBox { 
-            border: 1px solid #30363d; 
-            border-radius: 4px;
-            margin-top: 10px;
-            padding-top: 10px;
-            font-weight: 500;
-            color: #58a6ff;
-        }
-        QGroupBox:title { 
-            subcontrol-origin: margin; 
-            left: 12px; 
-            padding: 0 4px 0 4px;
-        }
-        QPushButton { 
-            background-color: #1f6feb;
-            color: #ffffff; 
-            border: 1px solid #1f6feb; 
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-        QPushButton:hover { 
-            background-color: #388bfd;
-            border: 1px solid #388bfd;
-        }
-        QPushButton:pressed { 
-            background-color: #1a4fab;
-        }
-        QPushButton:disabled {
-            background-color: #30363d;
-            color: #6e7681;
-            border: 1px solid #30363d;
-        }
-        QListWidget { 
-            background: #0d1117; 
-            color: #c9d1d9; 
-            border: 1px solid #30363d; 
-            border-radius: 4px;
-            padding: 4px;
-        }
-        QListWidget::item { 
-            padding: 6px 4px; 
-            border-radius: 3px;
-        }
-        QListWidget::item:selected { 
-            background: #1f6feb; 
-            color: #ffffff;
-        }
-        QListWidget::item:hover { 
-            background: #161b22;
-        }
-        QLineEdit { 
-            background: #0d1117; 
-            color: #c9d1d9; 
-            border: 1px solid #30363d; 
-            border-radius: 4px;
-            padding: 6px 8px;
-            selection-background-color: #1f6feb;
-        }
-        QLineEdit:focus { 
-            border: 1px solid #58a6ff;
-            background: #0d1117;
-        }
-        QSpinBox { 
-            background: #0d1117; 
-            color: #c9d1d9; 
-            border: 1px solid #30363d; 
-            border-radius: 4px;
-            padding: 4px;
-        }
-        QSpinBox:focus { 
-            border: 1px solid #58a6ff;
-        }
-        QSpinBox::up-button, QSpinBox::down-button {
-            background: #161b22;
-            border: 1px solid #30363d;
-        }
-        QProgressBar { 
-            background: #161b22; 
-            color: #c9d1d9; 
-            border: 1px solid #30363d; 
-            border-radius: 4px;
-            text-align: center;
-            height: 6px;
-        }
-        QProgressBar::chunk { 
-            background: #1f6feb;
-            border-radius: 3px;
-        }
-        QCheckBox { 
-            color: #c9d1d9;
-            spacing: 6px;
-        }
-        QCheckBox::indicator { 
-            width: 16px; 
-            height: 16px;
-        }
-        QCheckBox::indicator:unchecked { 
-            background: #0d1117; 
-            border: 1px solid #30363d;
-            border-radius: 3px;
-        }
-        QCheckBox::indicator:checked { 
-            background: #1f6feb; 
-            border: 1px solid #1f6feb;
-            border-radius: 3px;
-        }
-        QLabel { 
-            color: #c9d1d9;
-        }
-        QScrollArea {
-            background: #0d1117;
-            border: none;
-        }
-        """
+    QWidget {background-color: #0d1117; color: #e0e0e0; font-family: 'Segoe UI', 'Ubuntu', sans-serif; font-size: 10pt;}
+    QTabWidget::pane {border: 1px solid #30363d; background-color: #0d1117;}
+    QTabBar::tab {background: #161b22; color: #8b949e; padding: 12px 24px; border: 1px solid #30363d; margin-right: 0px; font-weight: 500;}
+    QTabBar::tab:selected {background: #1f6feb; color: #ffffff; border: 1px solid #1f6feb;}
+    QTabBar::tab:hover {background: #262d34;}
+    QGroupBox {border: 1px solid #30363d; border-radius: 4px; margin-top: 10px; padding-top: 10px; font-weight: 500; color: #58a6ff;}
+    QGroupBox:title {subcontrol-origin: margin; left: 12px; padding: 0 4px 0 4px;}
+    QPushButton {background-color: #1f6feb; color: #ffffff; border: 1px solid #1f6feb; padding: 8px 16px; border-radius: 4px; font-weight: 500;}
+    QPushButton:hover {background-color: #388bfd; border: 1px solid #388bfd;}
+    QPushButton:pressed {background-color: #1a4fab;}
+    QPushButton:disabled {background-color: #30363d; color: #6e7681; border: 1px solid #30363d;}
+    QListWidget {background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 4px;}
+    QListWidget::item {padding: 6px 4px; border-radius: 3px;}
+    QListWidget::item:selected {background: #1f6feb; color: #ffffff;}
+    QListWidget::item:hover {background: #161b22;}
+    QLineEdit {background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 6px 8px; selection-background-color: #1f6feb;}
+    QLineEdit:focus {border: 1px solid #58a6ff; background: #0d1117;}
+    QSpinBox {background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 4px;}
+    QSpinBox:focus {border: 1px solid #58a6ff;}
+    QSpinBox::up-button, QSpinBox::down-button {background: #161b22; border: 1px solid #30363d;}
+    QProgressBar {background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; text-align: center; height: 6px;}
+    QProgressBar::chunk {background: #1f6feb; border-radius: 3px;}
+    QCheckBox {color: #c9d1d9; spacing: 6px;}
+    QCheckBox::indicator {width: 16px; height: 16px;}
+    QCheckBox::indicator:unchecked {background: #0d1117; border: 1px solid #30363d; border-radius: 3px;}
+    QCheckBox::indicator:checked {background: #1f6feb; border: 1px solid #1f6feb; border-radius: 3px;}
+    QLabel {color: #c9d1d9;}
+    QScrollArea {background: #0d1117; border: none;}
+    """
+        self.setStyleSheet(professional_stylesheet)
         self.setStyleSheet(professional_stylesheet)
 
     def init_ui(self):
@@ -192,202 +103,38 @@ class AdvancedSteganoGUI(QWidget):
         self.language_combo = QComboBox()
         self.language_combo.addItems(['Español', 'English'])
         self.language_combo.currentIndexChanged.connect(self.change_language)
-        # --- Temas ---
-        self.theme_combo = QComboBox()
-        self.theme_combo.addItems(['Oscuro', 'Claro'])
-        self.theme_combo.currentIndexChanged.connect(self.change_theme)
-        theme_layout = QHBoxLayout()
-        theme_layout.addWidget(QLabel('Tema:'))
-        theme_layout.addWidget(self.theme_combo)
-        theme_layout.addStretch()
-        # --- Layout superior ---
-        top_layout = QHBoxLayout()
-        top_layout.addWidget(self.language_combo)
-        top_layout.addLayout(theme_layout)
-        main_layout.addLayout(top_layout)
-        # Header
-        header_layout = QHBoxLayout()
-        self.title_label = QLabel('Esteganografía Avanzada')
-        title_font = QFont('Segoe UI', 12, QFont.Bold)
-        self.title_label.setFont(title_font)
-        self.title_label.setStyleSheet("color: #58a6ff;")
-        header_layout.addWidget(self.title_label)
-        header_layout.addStretch()
-        self.help_btn = QPushButton('Ayuda')
-        self.help_btn.setMaximumWidth(100)
+
+        # Título principal y ayuda
+        self.title_label = QLabel(self.tr('Esteganografía Avanzada'))
+        self.title_label.setFont(QFont('Segoe UI', 16, QFont.Bold))
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.help_btn = QPushButton(self.tr('Ayuda'))
         self.help_btn.clicked.connect(self.show_help)
-        header_layout.addWidget(self.help_btn)
-        main_layout.addLayout(header_layout)
-        main_layout.addSpacing(10)
-        # Tabs
+        title_layout = QHBoxLayout()
+        title_layout.addWidget(self.title_label)
+        title_layout.addWidget(self.language_combo)
+        title_layout.addWidget(self.help_btn)
+        main_layout.addLayout(title_layout)
+
+        # Tabs principales
         self.tabs = QTabWidget()
         self.tab_hide = QWidget()
         self.tab_extract = QWidget()
         self.tab_compare = QWidget()
         self.tab_history = QWidget()
-        self.tabs.addTab(self.tab_hide, 'Ocultar')
-        self.tabs.addTab(self.tab_extract, 'Extraer')
-        self.tabs.addTab(self.tab_compare, 'Análisis')
-        self.tabs.addTab(self.tab_history, 'Historial')
+        self.tabs.addTab(self.tab_hide, self.tr('Ocultar'))
+        self.tabs.addTab(self.tab_extract, self.tr('Extraer'))
+        self.tabs.addTab(self.tab_compare, self.tr('Análisis'))
+        self.tabs.addTab(self.tab_history, self.tr('Historial'))
         main_layout.addWidget(self.tabs)
-        self.setLayout(main_layout)
-        # Inicializar contenido de cada pestaña
+
+        # Inicializar contenido de cada tab
         self.init_hide_tab()
         self.init_extract_tab()
         self.init_compare_tab()
         self.init_history_tab()
 
-    def change_theme(self, idx):
-        theme = self.theme_combo.currentText()
-        if theme == 'Claro':
-            self.apply_light_theme()
-        else:
-            self.apply_professional_theme()
-
-    def apply_light_theme(self):
-        light_stylesheet = """
-        QWidget {
-            background-color: #f5f5f5;
-            color: #222222;
-            font-family: 'Segoe UI', 'Ubuntu', sans-serif;
-            font-size: 10pt;
-        }
-        QTabWidget::pane {
-            border: 1px solid #cccccc;
-            background-color: #f5f5f5;
-        }
-        QTabBar::tab {
-            background: #e0e0e0;
-            color: #222222;
-            padding: 12px 24px;
-            border: 1px solid #cccccc;
-            margin-right: 0px;
-            font-weight: 500;
-        }
-        QTabBar::tab:selected {
-            background: #1976d2;
-            color: #ffffff;
-            border: 1px solid #1976d2;
-        }
-        QTabBar::tab:hover {
-            background: #eeeeee;
-        }
-        QGroupBox {
-            border: 1px solid #cccccc;
-            border-radius: 4px;
-            margin-top: 10px;
-            padding-top: 10px;
-            font-weight: 500;
-            color: #1976d2;
-        }
-        QGroupBox:title {
-            subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 4px 0 4px;
-        }
-        QPushButton {
-            background-color: #1976d2;
-            color: #ffffff;
-            border: 1px solid #1976d2;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-        QPushButton:hover {
-            background-color: #2196f3;
-            border: 1px solid #2196f3;
-        }
-        QPushButton:pressed {
-            background-color: #1565c0;
-        }
-        QPushButton:disabled {
-            background-color: #cccccc;
-            color: #888888;
-            border: 1px solid #cccccc;
-        }
-        QListWidget {
-            background: #f5f5f5;
-            color: #222222;
-            border: 1px solid #cccccc;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        QListWidget::item {
-            padding: 6px 4px;
-            border-radius: 3px;
-        }
-        QListWidget::item:selected {
-            background: #1976d2;
-            color: #ffffff;
-        }
-        QListWidget::item:hover {
-            background: #e0e0e0;
-        }
-        QLineEdit {
-            background: #ffffff;
-            color: #222222;
-            border: 1px solid #cccccc;
-            border-radius: 4px;
-            padding: 6px 8px;
-            selection-background-color: #1976d2;
-        }
-        QLineEdit:focus {
-            border: 1px solid #1976d2;
-            background: #ffffff;
-        }
-        QSpinBox {
-            background: #ffffff;
-            color: #222222;
-            border: 1px solid #cccccc;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        QSpinBox:focus {
-            border: 1px solid #1976d2;
-        }
-        QSpinBox::up-button, QSpinBox::down-button {
-            background: #e0e0e0;
-            border: 1px solid #cccccc;
-        }
-        QProgressBar {
-            background: #e0e0e0;
-            color: #222222;
-            border: 1px solid #cccccc;
-            border-radius: 4px;
-            text-align: center;
-            height: 6px;
-        }
-        QProgressBar::chunk {
-            background: #1976d2;
-            border-radius: 3px;
-        }
-        QCheckBox {
-            color: #222222;
-            spacing: 6px;
-        }
-        QCheckBox::indicator {
-            width: 16px;
-            height: 16px;
-        }
-        QCheckBox::indicator:unchecked {
-            background: #ffffff;
-            border: 1px solid #cccccc;
-            border-radius: 3px;
-        }
-        QCheckBox::indicator:checked {
-            background: #1976d2;
-            border: 1px solid #1976d2;
-            border-radius: 3px;
-        }
-        QLabel {
-            color: #222222;
-        }
-        QScrollArea {
-            background: #f5f5f5;
-            border: none;
-        }
-        """
-        self.setStyleSheet(light_stylesheet)
+        self.setLayout(main_layout)
 
     def change_language(self, idx):
         lang = self.language_combo.currentText()
@@ -414,7 +161,7 @@ class AdvancedSteganoGUI(QWidget):
         self.history_list.setSelectionMode(QListWidget.NoSelection)
         layout.addWidget(self.history_list)
         btns = QHBoxLayout()
-        btn_clear = QPushButton('Limpiar Historial')
+        btn_clear = QPushButton(self.tr('Limpiar Historial'))  # i18n
         btn_clear.clicked.connect(self.clear_history)
         btns.addStretch()
         btns.addWidget(btn_clear)
@@ -431,116 +178,119 @@ class AdvancedSteganoGUI(QWidget):
             'resultado': result
         }
         self.history.append(entry)
-        # Mostrar en la lista
+        # Mostrar en la lista (i18n)
         files_str = ', '.join(files) if isinstance(files, list) else str(files)
-        text = f"[{timestamp}] {action} | Archivos: {files_str} | Resultado: {result}"
+        text = self.tr('[{timestamp}] {action} | Archivos: {files_str} | Resultado: {result}') \
+            .format(timestamp=timestamp, action=action, files_str=files_str, result=result)
         self.history_list.addItem(text)
 
-    def clear_history(self):
-        self.history.clear()
-        self.history_list.clear()
+        # Guardar en MongoDB
+        try:
+            mongo_historial.insert_one(entry)
+        except Exception:
+            pass
 
     def init_hide_tab(self):
         layout = QVBoxLayout()
-        
+
+        # --- NUEVO: Sección de portadora y archivos a ocultar en dos columnas horizontales ---
+        columns_layout = QHBoxLayout()
+
         # Portadoras
-        carrier_group = QGroupBox('Archivo Portadora')
+        carrier_group = QGroupBox(self.tr('Archivo Portadora'))  # i18n
         carrier_layout = QVBoxLayout()
-        
-        self.lbl_preview = QLabel('Vista previa de portadora')
+        self.lbl_preview = QLabel(self.tr('Vista previa de portadora'))  # i18n
         self.lbl_preview.setAlignment(Qt.AlignCenter)
         self.lbl_preview.setStyleSheet("padding: 20px; border: 1px dashed #30363d; border-radius: 4px; min-height: 100px; background: #161b22;")
         self.lbl_preview.setMinimumHeight(120)
         carrier_layout.addWidget(self.lbl_preview)
-        
         self.carrier_list = QListWidget()
         self.carrier_list.setMaximumHeight(60)
         self.carrier_list.setAcceptDrops(True)
         self.carrier_list.dragEnterEvent = lambda e: e.accept() if e.mimeData().hasUrls() else e.ignore()
         self.carrier_list.dropEvent = self.drop_carrier_event
         carrier_layout.addWidget(self.carrier_list)
-        
         carrier_btns = QHBoxLayout()
-        btn_add_carrier = QPushButton('Agregar Portadora')
+        btn_add_carrier = QPushButton(self.tr('Agregar Portadora'))  # i18n
         btn_add_carrier.clicked.connect(self.add_carrier)
-        btn_remove_carrier = QPushButton('Quitar')
+        btn_remove_carrier = QPushButton(self.tr('Quitar'))  # i18n
         btn_remove_carrier.clicked.connect(self.remove_carrier)
         carrier_btns.addWidget(btn_add_carrier)
         carrier_btns.addWidget(btn_remove_carrier)
         carrier_layout.addLayout(carrier_btns)
         carrier_group.setLayout(carrier_layout)
-        layout.addWidget(carrier_group)
+        columns_layout.addWidget(carrier_group)
 
         # Archivos secretos
-        secret_group = QGroupBox('Archivos a Ocultar')
+        secret_group = QGroupBox(self.tr('Archivos a Ocultar'))  # i18n
         secret_layout = QVBoxLayout()
         self.secret_list = QListWidget()
         self.secret_list.setAcceptDrops(True)
         self.secret_list.setDragEnabled(True)
         self.secret_list.dragEnterEvent = lambda e: e.accept() if e.mimeData().hasUrls() else e.ignore()
         self.secret_list.dropEvent = self.drop_secret_event
-        # (Eliminada definición anidada y duplicada de init_compare_tab)
         self.secret_list.setAcceptDrops(True)
         self.secret_list.dragEnterEvent = lambda e: e.accept() if e.mimeData().hasUrls() else e.ignore()
         self.secret_list.dropEvent = self.drop_secret_event
         secret_layout.addWidget(self.secret_list)
-        
         secret_btns = QHBoxLayout()
-        btn_add_secret = QPushButton('Agregar Archivo')
+        btn_add_secret = QPushButton(self.tr('Agregar Archivo'))  # i18n
         btn_add_secret.clicked.connect(self.add_secret)
-        btn_remove_secret = QPushButton('Quitar')
+        btn_remove_secret = QPushButton(self.tr('Quitar'))  # i18n
         btn_remove_secret.clicked.connect(self.remove_secret)
         secret_btns.addWidget(btn_add_secret)
         secret_btns.addWidget(btn_remove_secret)
         secret_layout.addLayout(secret_btns)
         secret_group.setLayout(secret_layout)
-        layout.addWidget(secret_group)
+        columns_layout.addWidget(secret_group)
+
+        layout.addLayout(columns_layout)
 
         # Opciones avanzadas
-        options_group = QGroupBox('Opciones Avanzadas')
+        options_group = QGroupBox(self.tr('Opciones Avanzadas'))  # i18n
         options_layout = QFormLayout()
-        
+
         self.password1 = QLineEdit()
-        self.password1.setPlaceholderText('Contraseña principal')
+        self.password1.setPlaceholderText(self.tr('Contraseña principal'))  # i18n
         self.password1.setEchoMode(QLineEdit.Password)
 
         self.password2 = QLineEdit()
-        self.password2.setPlaceholderText('Contraseña alternativa')
+        self.password2.setPlaceholderText(self.tr('Contraseña alternativa'))  # i18n
         self.password2.setEchoMode(QLineEdit.Password)
 
         self.password3 = QLineEdit()
-        self.password3.setPlaceholderText('Contraseña adicional')
+        self.password3.setPlaceholderText(self.tr('Contraseña adicional'))  # i18n
         self.password3.setEchoMode(QLineEdit.Password)
 
         from PyQt5.QtWidgets import QComboBox
         self.cipher_combo = QComboBox()
-        self.cipher_combo.addItems(['Fernet', 'AES'])
-        options_layout.addRow('Password A:', self.password1)
-        options_layout.addRow('Password B:', self.password2)
-        options_layout.addRow('Password C:', self.password3)
-        options_layout.addRow('Algoritmo de cifrado:', self.cipher_combo)
-        
+        self.cipher_combo.addItems([self.tr('Fernet'), self.tr('AES')])  # i18n
+        options_layout.addRow(self.tr('Password A:'), self.password1)  # i18n
+        options_layout.addRow(self.tr('Password B:'), self.password2)  # i18n
+        options_layout.addRow(self.tr('Password C:'), self.password3)  # i18n
+        options_layout.addRow(self.tr('Algoritmo de cifrado:'), self.cipher_combo)  # i18n
+
         self.bits_spin = QSpinBox()
         self.bits_spin.setRange(1, 8)
         self.bits_spin.setValue(1)
-        options_layout.addRow('Bits por canal:', self.bits_spin)
-        
-        self.scramble_check = QCheckBox('Scrambling (experimental)')
+        options_layout.addRow(self.tr('Bits por canal:'), self.bits_spin)  # i18n
+
+        self.scramble_check = QCheckBox(self.tr('Scrambling (experimental)'))  # i18n
         options_layout.addRow(self.scramble_check)
-        
+
         options_group.setLayout(options_layout)
         layout.addWidget(options_group)
 
         self.progress = QProgressBar()
         self.progress.setVisible(False)
         layout.addWidget(self.progress)
-        
-        btn_encode = QPushButton('Ocultar Archivos')
+
+        btn_encode = QPushButton(self.tr('Ocultar Archivos'))  # i18n
         btn_encode.setMinimumHeight(40)
         btn_encode.setFont(QFont('Segoe UI', 10, QFont.Bold))
         btn_encode.clicked.connect(self.encode_files)
         layout.addWidget(btn_encode)
-        
+
         layout.addStretch()
         self.tab_hide.setLayout(layout)
 
@@ -602,66 +352,70 @@ class AdvancedSteganoGUI(QWidget):
 
     def init_extract_tab(self):
         layout = QVBoxLayout()
-        carrier_group = QGroupBox('Seleccionar Portadora')
+        # Grupo de portadora
+        carrier_group = QGroupBox(self.tr('Seleccionar Portadora'))  # i18n
         carrier_layout = QVBoxLayout()
         self.extract_carrier_list = QListWidget()
         carrier_layout.addWidget(self.extract_carrier_list)
-        
+
         carrier_btns = QHBoxLayout()
-        btn_add_carrier = QPushButton('Agregar')
+        btn_add_carrier = QPushButton(self.tr('Agregar'))  # i18n
         btn_add_carrier.clicked.connect(self.add_extract_carrier)
-        btn_remove_carrier = QPushButton('Quitar')
+        btn_remove_carrier = QPushButton(self.tr('Quitar'))  # i18n
         btn_remove_carrier.clicked.connect(self.remove_extract_carrier)
         carrier_btns.addWidget(btn_add_carrier)
         carrier_btns.addWidget(btn_remove_carrier)
         carrier_layout.addLayout(carrier_btns)
         carrier_group.setLayout(carrier_layout)
         layout.addWidget(carrier_group)
-        
-        pwd_group = QGroupBox('Contraseña')
+
+        # Grupo de contraseña
+        pwd_group = QGroupBox(self.tr('Contraseña'))  # i18n
         pwd_layout = QFormLayout()
         self.extract_password = QLineEdit()
-        self.extract_password.setPlaceholderText('Ingresa contraseña si el archivo está cifrado')
+        self.extract_password.setPlaceholderText(self.tr('Ingresa contraseña si el archivo está cifrado'))  # i18n
         self.extract_password.setEchoMode(QLineEdit.Password)
         pwd_layout.addRow(self.extract_password)
         pwd_group.setLayout(pwd_layout)
         layout.addWidget(pwd_group)
-        
+
         layout.addStretch()
-        
-        btn_extract = QPushButton('Extraer Archivos Ocultos')
+
+        # Botón de extracción
+        btn_extract = QPushButton(self.tr('Extraer Archivos Ocultos'))  # i18n
         btn_extract.setMinimumHeight(40)
         btn_extract.setFont(QFont('Segoe UI', 10, QFont.Bold))
         btn_extract.clicked.connect(self.extract_files)
         layout.addWidget(btn_extract)
-        
+
         self.tab_extract.setLayout(layout)
 
     def init_compare_tab(self):
         layout = QVBoxLayout()
-        info_label = QLabel('Información de Análisis')
+        # Título de análisis
+        info_label = QLabel(self.tr('Información de Análisis'))  # i18n
         info_font = QFont('Segoe UI', 11, QFont.Bold)
         info_label.setFont(info_font)
         info_label.setStyleSheet("color: #58a6ff;")
         layout.addWidget(info_label)
 
         # Selección y previsualización de archivos
-        select_group = QGroupBox('Selecciona archivos para comparar')
+        select_group = QGroupBox(self.tr('Selecciona archivos para comparar'))  # i18n
         select_layout = QHBoxLayout()
         # Original
         orig_layout = QVBoxLayout()
-        self.btn_select_orig = QPushButton('Seleccionar original')
+        self.btn_select_orig = QPushButton(self.tr('Seleccionar original'))  # i18n
         self.btn_select_orig.clicked.connect(self.select_orig_file)
-        self.lbl_orig_preview = QLabel('Vista previa original')
+        self.lbl_orig_preview = QLabel(self.tr('Vista previa original'))  # i18n
         self.lbl_orig_preview.setAlignment(Qt.AlignCenter)
         self.lbl_orig_preview.setMinimumHeight(100)
         orig_layout.addWidget(self.btn_select_orig)
         orig_layout.addWidget(self.lbl_orig_preview)
         # Modificado
         mod_layout = QVBoxLayout()
-        self.btn_select_mod = QPushButton('Seleccionar modificado')
+        self.btn_select_mod = QPushButton(self.tr('Seleccionar modificado'))  # i18n
         self.btn_select_mod.clicked.connect(self.select_mod_file)
-        self.lbl_mod_preview = QLabel('Vista previa modificada')
+        self.lbl_mod_preview = QLabel(self.tr('Vista previa modificada'))  # i18n
         self.lbl_mod_preview.setAlignment(Qt.AlignCenter)
         self.lbl_mod_preview.setMinimumHeight(100)
         mod_layout.addWidget(self.btn_select_mod)
@@ -672,10 +426,10 @@ class AdvancedSteganoGUI(QWidget):
         layout.addWidget(select_group)
 
         # Información de análisis
-        compare_group = QGroupBox('Portadora Original')
+        compare_group = QGroupBox(self.tr('Portadora Original'))  # i18n
         compare_layout = QFormLayout()
-        self.lbl_orig_size = QLabel('Tamaño: -')
-        self.lbl_orig_hash = QLabel('Hash SHA256: -')
+        self.lbl_orig_size = QLabel(self.tr('Tamaño: -'))  # i18n
+        self.lbl_orig_hash = QLabel(self.tr('Hash SHA256: -'))  # i18n
         self.lbl_orig_size.setStyleSheet("padding: 6px; background: #161b22; border-radius: 3px;")
         self.lbl_orig_hash.setStyleSheet("padding: 6px; background: #161b22; border-radius: 3px;")
         compare_layout.addRow(self.lbl_orig_size)
@@ -683,10 +437,10 @@ class AdvancedSteganoGUI(QWidget):
         compare_group.setLayout(compare_layout)
         layout.addWidget(compare_group)
 
-        compare_group2 = QGroupBox('Portadora Modificada')
+        compare_group2 = QGroupBox(self.tr('Portadora Modificada'))  # i18n
         compare_layout2 = QFormLayout()
-        self.lbl_mod_size = QLabel('Tamaño: -')
-        self.lbl_mod_hash = QLabel('Hash SHA256: -')
+        self.lbl_mod_size = QLabel(self.tr('Tamaño: -'))  # i18n
+        self.lbl_mod_hash = QLabel(self.tr('Hash SHA256: -'))  # i18n
         self.lbl_mod_size.setStyleSheet("padding: 6px; background: #161b22; border-radius: 3px;")
         self.lbl_mod_hash.setStyleSheet("padding: 6px; background: #161b22; border-radius: 3px;")
         compare_layout2.addRow(self.lbl_mod_size)
@@ -694,9 +448,9 @@ class AdvancedSteganoGUI(QWidget):
         compare_group2.setLayout(compare_layout2)
         layout.addWidget(compare_group2)
 
-        diff_group = QGroupBox('Diferencia de Tamaño')
+        diff_group = QGroupBox(self.tr('Diferencia de Tamaño'))  # i18n
         diff_layout = QFormLayout()
-        self.lbl_diff_size = QLabel('Diferencia: -')
+        self.lbl_diff_size = QLabel(self.tr('Diferencia: -'))  # i18n
         self.lbl_diff_size.setStyleSheet("padding: 6px; background: #161b22; border-radius: 3px;")
         diff_layout.addRow(self.lbl_diff_size)
         diff_group.setLayout(diff_layout)
@@ -704,14 +458,20 @@ class AdvancedSteganoGUI(QWidget):
 
         layout.addStretch()
 
-        btn_clear = QPushButton('Limpiar Análisis')
+        btn_clear = QPushButton(self.tr('Limpiar Análisis'))  # i18n
         btn_clear.clicked.connect(self.clear_analysis)
         layout.addWidget(btn_clear)
 
         self.tab_compare.setLayout(layout)
 
     def select_orig_file(self):
-        file, _ = QFileDialog.getOpenFileName(self, 'Seleccionar archivo original', '', 'Todos (*.*)')
+        # Abrir por defecto la carpeta de Descargas del usuario
+        import os
+        if os.name == 'nt':
+            downloads = os.path.join(os.environ['USERPROFILE'], 'Downloads')
+        else:
+            downloads = os.path.join(os.path.expanduser('~'), 'Downloads')
+        file, _ = QFileDialog.getOpenFileName(self, 'Seleccionar archivo original', downloads, 'Todos (*.*)')
         if file:
             self.show_preview(file, self.lbl_orig_preview)
             self.update_analysis_info(file, is_original=True)
@@ -726,7 +486,11 @@ class AdvancedSteganoGUI(QWidget):
                 )
 
     def select_mod_file(self):
-        file, _ = QFileDialog.getOpenFileName(self, 'Seleccionar archivo modificado', '', 'Todos (*.*)')
+        # Abrir por defecto la carpeta de salidas_steg para elegir archivo modificado
+        base_out_dir = os.path.join(os.getcwd(), 'salidas_steg')
+        if not os.path.exists(base_out_dir):
+            os.makedirs(base_out_dir)
+        file, _ = QFileDialog.getOpenFileName(self, 'Seleccionar archivo modificado', base_out_dir, 'Todos (*.*)')
         if file:
             self.show_preview(file, self.lbl_mod_preview)
             self.update_analysis_info(file, is_original=False)
@@ -835,7 +599,11 @@ class AdvancedSteganoGUI(QWidget):
             self.secret_list.takeItem(self.secret_list.row(item))
 
     def add_extract_carrier(self):
-        files, _ = QFileDialog.getOpenFileNames(self, 'Seleccionar Portadora', '', 
+        # Abrir por defecto la carpeta de salidas_steg para elegir portadora modificada
+        base_out_dir = os.path.join(os.getcwd(), 'salidas_steg')
+        if not os.path.exists(base_out_dir):
+            os.makedirs(base_out_dir)
+        files, _ = QFileDialog.getOpenFileNames(self, 'Seleccionar Portadora', base_out_dir,
             'Imágenes (*.png *.jpg *.jpeg *.bmp);;Audio (*.wav *.mp3);;PDF (*.pdf);;Video (*.mp4 *.avi *.mov);;Word (*.docx);;ZIP (*.zip);;Todos (*.*)')
         for f in files:
             self.extract_carrier_list.addItem(f)
@@ -867,7 +635,18 @@ class AdvancedSteganoGUI(QWidget):
             file_filter = 'ZIP (*.zip);;Todos (*.*)'
         else:
             file_filter = 'Todos (*.*)'
-        out_path, _ = QFileDialog.getSaveFileName(self, 'Guardar Portadora Modificada', '', file_filter)
+        # Crear carpeta de salida por operación
+        from datetime import datetime
+        base_out_dir = os.path.join(os.getcwd(), 'salidas_steg')
+        if not os.path.exists(base_out_dir):
+            os.makedirs(base_out_dir)
+        op_folder = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        op_out_dir = os.path.join(base_out_dir, op_folder)
+        os.makedirs(op_out_dir, exist_ok=True)
+        # Sugerir nombre de archivo modificado
+        mod_name = f"mod_{os.path.basename(carrier)}"
+        default_out_path = os.path.join(op_out_dir, mod_name)
+        out_path, _ = QFileDialog.getSaveFileName(self, 'Guardar Portadora Modificada', default_out_path, file_filter)
         if not out_path:
             return
         try:
@@ -926,9 +705,35 @@ class AdvancedSteganoGUI(QWidget):
                 [carrier] + secret_files,
                 f'Guardado: {os.path.basename(out_path)}'
             )
+            # Guardar info en MongoDB
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            mongo_portadoras.insert_one({
+                'archivo': carrier,
+                'fecha': timestamp,
+                'accion': 'ocultar',
+                'archivos_ocultos': secret_files,
+                'salida': out_path
+            })
+            for secret in secret_files:
+                mongo_secretos.insert_one({
+                    'archivo': secret,
+                    'fecha': timestamp,
+                    'accion': 'ocultar',
+                    'portadora': carrier,
+                    'salida': out_path
+                })
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Error al ocultar: {str(e)}')
             self.add_history_entry('Ocultar', [carrier], f'Error: {str(e)}')
+            # Guardar error en MongoDB
+            from datetime import datetime
+            mongo_errores.insert_one({
+                'fecha': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'tipo': 'ocultar',
+                'detalle': str(e),
+                'archivos': [carrier]
+            })
         finally:
             self.progress.setVisible(False)
 
@@ -967,6 +772,8 @@ class AdvancedSteganoGUI(QWidget):
                 parts = payload.split('##MULTIFILE##')
             else:
                 parts = [payload]
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             for part in parts:
                 if '||' not in part:
                     continue
@@ -982,6 +789,20 @@ class AdvancedSteganoGUI(QWidget):
                         f.write(file_bytes)
                     QMessageBox.information(self, 'Éxito', f'Archivo extraído: {os.path.basename(save_path)}')
                     extracted_files.append(save_path)
+                    # Guardar info en MongoDB
+                    mongo_secretos.insert_one({
+                        'archivo': save_path,
+                        'fecha': timestamp,
+                        'accion': 'extraer',
+                        'portadora': carrier
+                    })
+            # Guardar portadora y archivos extraídos en MongoDB
+            mongo_portadoras.insert_one({
+                'archivo': carrier,
+                'fecha': timestamp,
+                'accion': 'extraer',
+                'archivos_extraidos': extracted_files
+            })
             # Registrar en historial
             self.add_history_entry(
                 'Extraer',
@@ -991,6 +812,14 @@ class AdvancedSteganoGUI(QWidget):
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Error al extraer: {str(e)}')
             self.add_history_entry('Extraer', [carrier], f'Error: {str(e)}')
+            # Guardar error en MongoDB
+            from datetime import datetime
+            mongo_errores.insert_one({
+                'fecha': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'tipo': 'extraer',
+                'detalle': str(e),
+                'archivos': [carrier]
+            })
 
 def main():
     app = QApplication(sys.argv)
